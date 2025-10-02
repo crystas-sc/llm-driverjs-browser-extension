@@ -13,17 +13,28 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSaved();
 
   $('generate').addEventListener('click', async () => {
+    const generateButton = $('generate');
+    generateButton.classList.add('loading');
+
     const apiKey = $('apiKey').value.trim();
     const prompt = $('prompt').value.trim();
-    const mock = !!$('mockMode').checked;
-    const showRaw = !!$('showRaw').checked;
-    if (!apiKey) return alert('Please enter your Gemini API key (for prototyping only).');
-    if (!prompt) return alert('Please enter a prompt describing the tour you want.');
+
+    if (!apiKey) {
+      alert('Please enter your Gemini API key (for prototyping only).');
+      generateButton.classList.remove('loading');
+      return;
+    }
+    if (!prompt) {
+      alert('Please enter a prompt describing the tour you want.');
+      generateButton.classList.remove('loading');
+      return;
+    }
 
     await saveApiKey(apiKey);
 
     // Send message to background to trigger content script action on the active tab
-  chrome.runtime.sendMessage({ type: 'GENERATE_TOUR', prompt, mock, showRaw }, (resp) => {
+    chrome.runtime.sendMessage({ type: 'GENERATE_TOUR', prompt }, (resp) => {
+      generateButton.classList.remove('loading');
       // background will reply with status
       if (chrome.runtime.lastError) {
         alert('Error sending message: ' + chrome.runtime.lastError.message);
@@ -42,18 +53,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  $('showLogs').addEventListener('click', () => {
-    chrome.runtime.sendMessage({ type: 'GET_BG_LOGS' }, (resp) => {
-      if (chrome.runtime.lastError) {
-        alert('Failed to get logs: ' + chrome.runtime.lastError.message);
-        return;
-      }
-      if (resp && resp.ok && Array.isArray(resp.logs)) {
-        $('bgLogs').textContent = resp.logs.map(l => `${l.ts} ${l.level.toUpperCase()} ${l.msg}`).join('\n');
-        $('bgLogs').style.display = 'block';
-      } else {
-        alert('No logs available');
-      }
-    });
-  });
+
 });

@@ -84,32 +84,15 @@ async function callGemini(apiKey, prompt, pageContext) {
   throw new Error('Failed to call Generative Language API');
 }
 
-// Simple background logger (keeps a small ring buffer of recent entries)
-const BG_LOGS = [];
-function bgLog(level, msg) {
-  try {
-    const entry = { ts: new Date().toISOString(), level, msg: String(msg) };
-    BG_LOGS.push(entry);
-    if (BG_LOGS.length > 200) BG_LOGS.shift();
-    // Mirror to console for developer debugging
-    if (level === 'error') console.error('[BG]', msg);
-    else if (level === 'warn') console.warn('[BG]', msg);
-    else console.log('[BG]', msg);
-  } catch (e) {
-    console.error('BG logger failed', e);
-  }
-}
+
+
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Allow popup to fetch background logs
-  if (message && message.type === 'GET_BG_LOGS') {
-    sendResponse({ ok: true, logs: BG_LOGS.slice() });
-    return;
-  }
+ 
 
   if (message && message.type === 'GENERATE_TOUR') {
-    bgLog('info', `GENERATE_TOUR received (prompt length=${String(message.prompt || '').length})`);
-    // Get the active tab and request page context
+        // Get the active tab and request page context
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const tab = tabs && tabs[0];
       if (!tab || !tab.id) {
@@ -130,24 +113,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           // Only attempt injection on the common 'Could not establish connection' error
           if (err.includes('Could not establish connection') || err.includes('Receiving end does not exist')) {
             // Attempt to inject the content script into the tab and retry
-            bgLog('warn', `No receiver for message to tab ${tabId}, attempting to inject content script`);
+            console.log('warn', `No receiver for message to tab ${tabId}, attempting to inject content script`);
             chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] }, (injectionResults) => {
               if (chrome.runtime.lastError) {
-                bgLog('error', 'Failed to inject content script: ' + chrome.runtime.lastError.message);
+                console.log('error', 'Failed to inject content script: ' + chrome.runtime.lastError.message);
                 cb(new Error('Failed to inject content script: ' + chrome.runtime.lastError.message));
                 return;
               }
 
-              bgLog('info', `Injected content script into tab ${tabId}, retrying message`);
+              console.log('info', `Injected content script into tab ${tabId}, retrying message`);
 
               // Retry sendMessage once
               chrome.tabs.sendMessage(tabId, msg, (resp2) => {
                 if (chrome.runtime.lastError) {
-                  bgLog('error', 'No receiver after injection: ' + chrome.runtime.lastError.message);
+                  console.log('error', 'No receiver after injection: ' + chrome.runtime.lastError.message);
                   cb(new Error('No receiver after injection: ' + chrome.runtime.lastError.message));
                   return;
                 }
-                bgLog('info', `Message delivered to tab ${tabId} after injection`);
+                console.log('info', `Message delivered to tab ${tabId} after injection`);
                 cb(null, resp2);
               });
             });

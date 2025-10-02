@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "LLM Driver.js Tour Generator",
+  "description": "Generate on-page Driver.js tours using a Gemini LLM prompt (client-side).",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Generate Tour",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://*.googleapis.com/*",
+    "https://*.google.com/*",
+    "https://gemini.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["vendor/driver.css"],
+      "js": ["vendor/driver.js","content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

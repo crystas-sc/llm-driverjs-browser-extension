@@ -1,0 +1,7 @@
+# Ignore node deps and workspace files
+node_modules/
+.vscode/
+/.DS_Store
+/*.crx
+.github/
+.env

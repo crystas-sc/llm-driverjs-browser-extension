@@ -113,15 +113,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message && message.type === 'GEMINI_RESULT') {
     (async () => {
       try {
-        const apiResp = message.result || {};
+        let steps = message.result || [];
 
         // Try common locations for generated text in the Generative Language API
-        let genText = apiResp?.candidates[0]?.content?.parts[0]?.text || '';
-        genText = genText.trim();
-        let steps = [];
-        if(genText){
-            console.log("Gen text from parts[0].text:", genText);
-            steps = JSON.parse(genText);
+        // let genText = apiResp?.candidates[0]?.content?.parts[0]?.text || '';
+        // genText = genText.trim();
+        // let steps = [];
+        // if(genText){
+            // console.log("Gen text from parts[0].text:", genText);
+            // steps = JSON.parse(genText);
             // If genText contains a Markdown-style code block with JSON, extract and parse it
             // const codeBlockMatch = genText.match(/```json\s*([\s\S]*?)```/i);
             // if (codeBlockMatch && codeBlockMatch[1]) {
@@ -138,7 +138,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             //     }
             // }
 
-        }
+        // }
         
 
         if (!Array.isArray(steps) || steps.length === 0) {

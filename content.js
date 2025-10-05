@@ -86,26 +86,15 @@ function normalizeDriverSteps(steps) {
  * @param {Array<Object>} steps - The tour steps provided by the background script.
  */
 async function runDriverjs(steps) {
-    // 1. Load assets concurrently
-    try {
-        await Promise.all([
-            loadCss(EXTERNAL_RESOURCES.DRIVER_CSS),
-            loadScript(EXTERNAL_RESOURCES.DRIVER_JS)
-        ]);
-        console.log('Driver.js assets loaded successfully.');
-    } catch (err) {
-        console.error('Failed to load Driver.js assets:', err);
-        // Continue, as the assets might already be loaded
-    }
-
-    // 2. Normalize and check steps
+   
+    // 1. Normalize and check steps
     const normalizedSteps = normalizeDriverSteps(steps);
     if (normalizedSteps.length === 0) {
         console.warn('Attempted to run Driver.js with no steps.');
         return;
     }
 
-    // 3. Run Driver.js
+    // 2. Run Driver.js
     try {
         // Check for the exposed global API (driver.js.driver)
         if (typeof window.driver !== 'undefined' && typeof window.driver.js.driver === 'function') {

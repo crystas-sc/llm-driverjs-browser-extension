@@ -7,6 +7,7 @@ class DOM {
     static get apiKey() { return document.getElementById('apiKey'); }
     static get prompt() { return document.getElementById('prompt'); }
     static get generateButton() { return document.getElementById('generate'); }
+    static get predefinedTourContainer() { return document.getElementById('predefined-tours-container'); }
 }
 
 // =============================================================================
@@ -46,11 +47,12 @@ async function saveApiKey(key) {
 function sendMessageAsync(message) {
     return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(message, (response) => {
+            console.log("Received response from background:", response, chrome.runtime);
             // Check for connection/runtime errors first
             if (chrome.runtime.lastError) {
                 return reject(new Error(`Runtime error: ${chrome.runtime.lastError.message}`));
             }
-            
+
             // Check for logical errors defined in the background script's response
             if (response && response.ok === false) {
                 return reject(new Error(response.error || 'Unknown generation failure.'));
@@ -116,6 +118,114 @@ function initializePopup() {
     // Attach event listener to the generate button
     DOM.generateButton.addEventListener('click', handleGenerateClick);
 }
+
+// =============================================================================
+// Predefined Tours Logic
+// =============================================================================
+
+/**
+ * Fetches predefined tours based on the current tab URL.
+ * @param {string} tabUrl - The URL of the current tab.
+ */
+async function fetchPredefinedTours(tabUrl) {
+    try {
+        const response = await sendMessageAsync({ type: 'PREDEFINED_TOURS', url: tabUrl });
+        console.log("Predefined tours response:", response);
+        if (response?.ok && response.tours && response.tours.length > 0) {
+            populateTourSelect(response.tours);
+        } else {
+            console.warn('No predefined tours found for this URL.');
+            // Optionally, display a message to the user
+        }
+    } catch (error) {
+        console.error('Failed to fetch predefined tours:', error);
+        // Optionally, display an error message to the user
+    }
+}
+
+/**
+ * Populates the tour select element with predefined tours.
+ * @param {Array<string>} tours - An array of tour names.
+ */
+function populateTourSelect(tours) {
+    console.log("Populating predefined tours:", tours);
+    const selectElement = document.createElement('select');
+    selectElement.id = 'predefinedTours';
+    selectElement.innerHTML = '<option value="">Select a predefined tour</option>'; // Default option
+
+    tours.forEach(tour => {
+        const option = document.createElement('option');
+        option.value = JSON.stringify(tour);
+        option.textContent = tour.tourName;
+        selectElement.appendChild(option);
+    });
+
+    // Insert the select element before the prompt input
+    console.log("Appending predefined tour select to container:", DOM.predefinedTourContainer);
+    DOM.predefinedTourContainer.style.display = 'block'; // Make container visible
+    DOM.predefinedTourContainer.appendChild(selectElement);
+
+    // Add an event listener to update the prompt when a tour is selected
+    selectElement.addEventListener('change', async function () {
+        console.log("Predefined tour selected:", this.value);
+        if (this.value) {
+            const selectedTour = JSON.parse(this.value);
+            const tabId = (await getActiveTab()).id;
+            console.log("Selected tour object:", selectedTour,);
+            const renderMsg = { type: 'GEMINI_RESULT', result: selectedTour.steps }
+            chrome.tabs.sendMessage(tabId, renderMsg);
+            window.close();
+
+        }
+    });
+}
+
+async function getActiveTab() {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    console.log("Active tabs:", tabs);
+    const tab = tabs?.[0];
+    if (!tab || !tab.id) {
+        throw new Error('No active tab found or tab is invalid.');
+    }
+    return tab;
+}
+
+/**
+ * Gets the current tab URL.
+ */
+async function getCurrentTabUrl() {
+    return new Promise((resolve, reject) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            if (tabs && tabs.length > 0) {
+                resolve(tabs[0].url);
+            } else {
+                reject(new Error("Could not get current tab URL."));
+            }
+        });
+    });
+}
+
+
+// =============================================================================
+// Popup Initialization (Continued)
+// =============================================================================
+
+/**
+ * Extended Popup Initialization, after basic elements are loaded.
+ */
+async function initializePopupExtended() {
+    try {
+        const tabUrl = await getCurrentTabUrl();
+        await fetchPredefinedTours(tabUrl);
+    } catch (error) {
+        console.warn("Predefined tours initialization failed:", error);
+        // Optionally, display a message to the user.
+    }
+}
+
+
+// Call this after basic popup elements have been initialized.
+initializePopupExtended();
 
 // =============================================================================
 // Initialization

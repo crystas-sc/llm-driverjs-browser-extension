@@ -73,12 +73,22 @@ function getPageContext() {
 function normalizeDriverSteps(steps) {
     return steps.map(s => ({
         // Use 'element' or 'selector' for the DOM target
-        element: s.element || s.selector || null,
+        element: s.xpath ? getElementByXPath(s.xpath) : s.element || s.selector || null,
         popover: s.popover || {
             title: s.title || '',
             description: s.description || ''
         }
     }));
+}
+
+function getElementByXPath(xpath) {
+    return document.evaluate(
+        xpath,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+    ).singleNodeValue;
 }
 
 /**
@@ -146,6 +156,7 @@ function handleMessages(message, sender, sendResponse) {
         // Use an async IIFE to manage asynchronous tour execution
         (async () => {
             try {
+                console.log('Content script received message:', message);
                 const steps = message.result;
 
                 if (!Array.isArray(steps) || steps.length === 0) {

@@ -97,3 +97,40 @@ button.loading .button-text {
   text-align: center;
   margin-top: 15px;
 }
+
+select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-size: 1em;
+  appearance: none; /* Remove default arrow */
+  background-color: white;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3E%3Cpath fill='%23333' d='M2 0L0 2h4zm0 5L0 3h4z'/%3E%3C/svg%3E"); /* Custom arrow */
+  background-repeat: no-repeat;
+  background-position: right 10px top 50%;
+  background-size: 12px;
+  transition: border-color 0.3s;
+  color: #333;
+}
+
+select:focus {
+  border-color: #4a90e2;
+  outline: none;
+}
+select options {
+  min-height: 200px; /* Control height here */
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  border-top: none;
+  display: none;
+  position: absolute;
+  width: 100%;
+  background: white;
+  z-index: 10;
+}
+
+select::-ms-expand {
+    display: none; /* Remove default arrow in IE */
+}

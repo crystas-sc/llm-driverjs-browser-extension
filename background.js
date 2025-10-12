@@ -1,4 +1,5 @@
-import { generateTour } from './ai-service.js';
+import { generateTour, getPredefinedTours } from './ai-service.js';
+
 
 // =============================================================================
 // Constants and Utilities
@@ -6,6 +7,8 @@ import { generateTour } from './ai-service.js';
 
 const MESSAGE_TYPE = {
     GENERATE_TOUR: 'GENERATE_TOUR',
+    PREDEFINED_TOURS: 'PREDEFINED_TOURS',
+    PREDEFINED_TOURS_RESULT: 'PREDEFINED_TOURS_RESULT',
     REQUEST_PAGE_CONTEXT: 'REQUEST_PAGE_CONTEXT',
     GEMINI_RESULT: 'GEMINI_RESULT',
 };
@@ -20,6 +23,7 @@ const isMissingReceiverError = (error) =>
  */
 async function getActiveTab() {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    console.log("Active tabs:", tabs);
     const tab = tabs?.[0];
     if (!tab || !tab.id) {
         throw new Error('No active tab found or tab is invalid.');
@@ -134,5 +138,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
+    if (message?.type === MESSAGE_TYPE.PREDEFINED_TOURS) {
+        handlePredefinedTours(message, sendResponse);
+        // Return true to indicate the response will be sent asynchronously
+        return true;
+    }
+
     return false;
 });
+
+async function handlePredefinedTours(message, sendResponse) {
+    try {
+
+
+
+        const resp = await getPredefinedTours(message.url);
+        sendResponse({ ok: true, tours: resp });
+
+
+
+
+    } catch (error) {
+        // Centralized error handling
+        console.error('PREDEFINED_TOURS process failed:', error);
+        sendResponse({
+            ok: false,
+            error: error.message || 'An unknown error occurred during tour generation.'
+        });
+    }
+}

@@ -1,4 +1,4 @@
-import { generateTour, getPredefinedTours } from './ai-service.js';
+import { generateTour, getPredefinedTours, fillFormInputs } from './ai-service.js';
 
 
 // =============================================================================
@@ -11,6 +11,7 @@ const MESSAGE_TYPE = {
     PREDEFINED_TOURS_RESULT: 'PREDEFINED_TOURS_RESULT',
     REQUEST_PAGE_CONTEXT: 'REQUEST_PAGE_CONTEXT',
     GEMINI_RESULT: 'GEMINI_RESULT',
+    FILL_FORM_INPUTS: 'FILL_FORM_INPUTS',
 };
 
 // Error check for when the content script hasn't loaded yet
@@ -100,16 +101,45 @@ async function handleGenerateTour(message, sendResponse) {
         const pageContextResp = await sendMessageWithInjectionRetry(tabId, contextMsg);
         const pageContext = pageContextResp?.pageContext || {};
 
-        // 3. Call the AI Service
+        // 3. Check for Predefined Tours
+        let predefinedTour = null;
+        if (pageContext.url) {
+            try {
+                const tours = await getPredefinedTours(pageContext.url);
+                if (tours && tours.length > 0) {
+                    predefinedTour = tours[0];
+                    console.log("Found predefined tour for context:", predefinedTour.tourName);
+                }
+            } catch (err) {
+                console.warn("Failed to fetch predefined tours:", err);
+            }
+        }
+
+        // 4. Call the AI Service
         let apiResp;
         try {
-            apiResp = await generateTour(apiKey, message.prompt, pageContext);
+            apiResp = await generateTour(apiKey, message.prompt, pageContext, predefinedTour);
+
+            // Handle fill_input_form response
+            if (apiResp && apiResp.type === 'fill_input_form' && predefinedTour) {
+                console.log("AI chose to fill inputs for existing tour:", predefinedTour.tourName);
+                const formInput = apiResp.data.formInput || {};
+
+                // Merge inputs into steps
+                apiResp = predefinedTour.steps.map(step => {
+                    if (step.inputKey && formInput[step.inputKey]) {
+                        return { ...step, inputValue: formInput[step.inputKey] };
+                    }
+                    return step;
+                });
+            }
+
         } catch (err) {
             console.error('Background: AI service call failed.', err);
             throw new Error(`AI generation failed: ${err.message || err}`);
         }
 
-        // 4. Send Structured Result to Content Script for Rendering
+        // 5. Send Structured Result to Content Script for Rendering
         const renderMsg = { type: MESSAGE_TYPE.GEMINI_RESULT, result: apiResp };
         await sendMessageWithInjectionRetry(tabId, renderMsg);
 
@@ -122,6 +152,41 @@ async function handleGenerateTour(message, sendResponse) {
         sendResponse({
             ok: false,
             error: error.message || 'An unknown error occurred during tour generation.'
+        });
+    }
+}
+
+async function handleFillFormInputs(message, sendResponse) {
+    try {
+        const apiKey = await getApiKey();
+        const { prompt, tour } = message;
+
+        const result = await fillFormInputs(apiKey, prompt, tour);
+        console.log("AI result for inputs:", result);
+
+        let updatedSteps;
+
+        if (Array.isArray(result)) {
+            // AI returned the full steps with inputs filled
+            updatedSteps = result;
+        } else {
+            // Fallback: AI returned just the key-value pairs
+            const extractedValues = result;
+            updatedSteps = tour.steps.map(step => {
+                if (step.inputKey && extractedValues[step.inputKey]) {
+                    return { ...step, inputValue: extractedValues[step.inputKey] };
+                }
+                return step;
+            });
+        }
+
+        sendResponse({ ok: true, steps: updatedSteps });
+
+    } catch (error) {
+        console.error('FILL_FORM_INPUTS process failed:', error);
+        sendResponse({
+            ok: false,
+            error: error.message || 'Failed to fill form inputs.'
         });
     }
 }
@@ -144,20 +209,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
+    if (message?.type === MESSAGE_TYPE.FILL_FORM_INPUTS) {
+        handleFillFormInputs(message, sendResponse);
+        return true;
+    }
+
     return false;
 });
 
 async function handlePredefinedTours(message, sendResponse) {
     try {
-
-
-
         const resp = await getPredefinedTours(message.url);
         sendResponse({ ok: true, tours: resp });
-
-
-
-
     } catch (error) {
         // Centralized error handling
         console.error('PREDEFINED_TOURS process failed:', error);

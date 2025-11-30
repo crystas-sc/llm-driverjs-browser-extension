@@ -191,5 +191,46 @@
                 }
             }
         ]
+    },
+    {
+        "url": "https://www.airbnb.co.in/",
+        "tourName": "Airbnb homes Tour",
+        "description": "A tour to book homes on airbnb",
+        "formInputs": {
+            "origin": "",
+            "destination": ""
+        },
+        "steps": [
+            {
+                "xpath": "//*[@id=\"bigsearch-query-location-input\"]",
+                "popover": {
+                    "title": "Destination",
+                    "description": "Select destination, tour will move to next step when you select a destination",
+                    "side": "bottom",
+                    "align": "start"
+                },
+                "waitForInput": true,
+                "inputKey": "destination",
+                "inputValue": ""
+            },
+            {
+                "xpath": "//*[@id=\"react-application\"]/div/div/div[1]/div/div/div[1]/div[3]/div[1]/div/div/header/form/div[1]/div/div[2]/div[2]/div[3]/div/div[2]/div",
+                "popover": {
+                    "title": "Dates",
+                    "description": "Select  dates",
+                    "side": "bottom",
+                    "align": "start"
+                }
+            },
+            {
+                "xpath": "//*[@id=\"panel--tabs--0\"]/div/div/div[4]/div/div[1]/button[4]",
+                "popover": {
+                    "title": "Dates",
+                    "description": "Select  dates",
+                    "side": "bottom",
+                    "align": "start"
+                }
+            }
+        ]
     }
 ]

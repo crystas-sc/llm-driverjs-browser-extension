@@ -70,7 +70,6 @@ function getPageContext() {
  * @param {Array<Object>} steps - Steps from the Gemini result, e.g., { selector, title, description }.
  * @returns {Array<Object>} Normalized steps for Driver.js, e.g., { element, popover: { title, description } }.
  */
-
 function normalizeDriverSteps(steps, getDriverObj) {
     return steps.map((s, stepIndex) => {
         let step = {
@@ -79,16 +78,21 @@ function normalizeDriverSteps(steps, getDriverObj) {
             popover: s.popover || {
                 title: s.title || '',
                 description: s.description || ''
-
             }
         };
+
         if (s.waitForInput) {
-            // step.popover.showButtons = ['previous']; // Initially hide next button
             const checkInput = () => {
                 const element = getElementByXPath(s.xpath);
                 if (element) {
-                    element.addEventListener('blur', () => {
+                    // Inject input value if provided
+                    if (s.inputValue) {
+                        element.value = s.inputValue;
+                        element.dispatchEvent(new Event('input', { bubbles: true }));
+                        element.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
 
+                    element.addEventListener('blur', () => {
                         const nextBtn = document.querySelector('.driver-popover-next-btn');
                         if (nextBtn) {
                             nextBtn.style.display = 'inline-block';
@@ -96,7 +100,7 @@ function normalizeDriverSteps(steps, getDriverObj) {
                         setTimeout(() => {
                             getDriverObj().moveTo(stepIndex + 1);
                         }, 500);
-                    }, {});
+                    }, { once: true });
                 }
             };
             step.onHighlightStarted = checkInput;
@@ -111,13 +115,10 @@ function normalizeDriverSteps(steps, getDriverObj) {
                             element.click();
                             setTimeout(() => {
                                 getDriverObj().moveNext();
-
-                            }, 500)
+                            }, 500);
                         }
                     }
                 });
-
-
             };
         }
 

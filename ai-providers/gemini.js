@@ -40,12 +40,21 @@ function buildContextPrompt(pageContext) {
 
 /**
  * Defines the strict JSON format and selector rules for the model.
+ * @param {boolean} hasPageContext
+ * @param {Object} tour - The existing tour object if available.
  * @returns {string} The output instruction prompt string.
  */
-function buildOutputInstruction() {
-    return `
+function buildOutputInstruction(hasPageContext, tour) {
+    let instructions = `
 ---RESPONSE FORMAT---
-Return ONLY a JSON array (no surrounding text) which we'll call steps.
+Return ONLY a JSON object (no surrounding text).
+The object must have a "type" property and a "data" property.
+`;
+
+    if (hasPageContext) {
+        instructions += `
+IF YOU GENERATE A NEW TOUR (type="tour"):
+"data" must be an array of step objects.
 Each entry must be an object with the following shape when targeting a page element:
 {
   "element": "<css selector>",
@@ -56,25 +65,52 @@ Each entry must be an object with the following shape when targeting a page elem
     "align": "start|center|end"
   }
 }
-If a step is not attached to a DOM element (a summary/closing step), you must omit the "element" key or set it to null, e.g. { "popover": { ... } } or { "element": null, "popover": { ... } }.
-
-Selector rules (very important):
+Selector rules:
 - Use only CSS selectors that work with document.querySelector(). Do NOT use XPath.
-- Prefer an id selector when available: use "#the-id".
-- If no id, prefer class-based selectors: use a single class like ".my-class" or combine multiple classes as ".a.b" when necessary to make the selector specific.
-- If id or classes are not available or not unique, fall back to the tag name (e.g. "button", "h2") optionally combined with :nth-of-type or simple descendant selectors to make it unique, but avoid overly brittle selectors.
-- Avoid including full text content in the selector. Keep selectors concise and valid for querySelector().
-- Do NOT include newlines inside selector strings. Escape characters as needed.
+- Prefer id (#id) or specific class combinations.
+- Avoid brittle selectors.
 
-Return only the JSON array — no extra commentary, no surrounding markdown, and make sure strings are properly escaped.
+Example tour output:
+{
+  "type": "tour",
+  "data": [
+    { "element": "#header", "popover": { "title": "Header", "description": "..." } }
+  ]
+}
+`;
+    }
 
-Example output (exactly this JSON shape):
-[
-  { "element": "#tour-example", "popover": { "title": "Animated Tour Example", "description": "Short description here.", "side": "left", "align": "start" } },
-  { "element": ".nav-item.active", "popover": { "title": "Navigation", "description": "Explain the nav item.", "side": "bottom", "align": "center" } },
-  { "popover": { "title": "Happy Coding", "description": "Final note for the user." } }
-]
-`.trim(); // Trim leading/trailing whitespace from the template literal
+    if (tour) {
+        const keys = tour.formInputs ? Object.keys(tour.formInputs) : [];
+        instructions += `
+IF YOU FILL INPUTS FOR EXISTING TOUR (type="fill_input_form"):
+"data" must be an object containing "tourName" and "formInput".
+- "tourName": Must be "${tour.tourName}".
+- "formInput": An object where keys are the target input keys and values are extracted from the User Prompt.
+
+Target Input Keys: ${JSON.stringify(keys)}
+
+Example fill_input_form output:
+{
+  "type": "fill_input_form",
+  "data": {
+    "tourName": "${tour.tourName}",
+    "formInput": {
+      "origin": "London",
+      "destination": "Paris"
+    }
+  }
+}
+`;
+    }
+
+    instructions += `
+DECISION LOGIC:
+- If you are provided with an EXISTING TOUR, you MUST return type="fill_input_form".
+- If the user asks for a new tour and you have Page Context, return type="tour".
+`;
+
+    return instructions.trim();
 }
 
 // =============================================================================
@@ -82,19 +118,31 @@ Example output (exactly this JSON shape):
 // =============================================================================
 
 /**
- * Calls the Generative Language API to generate tour steps using context.
- * Implements exponential backoff for transient errors.
+ * Calls the Generative Language API.
+ * The AI decides whether to generate a tour or extract inputs based on the prompt and available context.
  *
  * @param {string} apiKey - The Gemini API key.
  * @param {string} userPrompt - The user's instruction.
- * @param {Object} pageContext - Contextual data scraped from the active page.
- * @returns {Promise<Array<Object>>} The parsed array of tour steps.
+ * @param {Object} contextData - Object containing { pageContext, tour }.
+ * @returns {Promise<Object>} The result object { type: 'tour'|'fill_input_form', data: ... }.
  */
-export async function callGemini(apiKey, userPrompt, pageContext) {
-    const contextPrompt = buildContextPrompt(pageContext);
-    const outputInstruction = buildOutputInstruction();
+export async function callGemini(apiKey, userPrompt, contextData = {}) {
+    let { pageContext, tour } = contextData;
+    console.log("contextData", contextData);
+    // return;
+    pageContext = "";
+    const hasPageContext = !!pageContext && Object.keys(pageContext).length > 0;
 
-    const combinedText = `${userPrompt}\n\n${contextPrompt}\n\n${outputInstruction}`;
+    const contextPrompt = buildContextPrompt(pageContext);
+    const outputInstruction = buildOutputInstruction(hasPageContext, tour);
+
+    let combinedText = `User Prompt: "${userPrompt}"\n\n${contextPrompt}`;
+
+    if (tour) {
+        combinedText += `\n\n---EXISTING TOUR---\nName: ${tour.tourName}\nDescription: ${tour.description}\nForm Inputs: ${JSON.stringify(tour.formInputs)}`;
+    }
+
+    combinedText += `\n\n${outputInstruction}`;
 
     const body = {
         contents: [{ parts: [{ text: combinedText }] }]
@@ -111,10 +159,8 @@ export async function callGemini(apiKey, userPrompt, pageContext) {
                 body: JSON.stringify(body)
             });
 
-            // Handle API failure response
             if (!resp.ok) {
                 const errorBody = await resp.text();
-                // Retry for 5xx server errors; fail immediately for 4xx client errors
                 if (resp.status >= 500 && attempt < GEMINI_CONFIG.MAX_RETRIES) {
                     const delay = GEMINI_CONFIG.BASE_DELAY_MS * Math.pow(2, attempt - 1);
                     console.warn(`Transient error (${resp.status}). Retrying in ${delay}ms...`);
@@ -124,38 +170,62 @@ export async function callGemini(apiKey, userPrompt, pageContext) {
                 throw new Error(`Generative Language API Error ${resp.status}: ${errorBody}`);
             }
 
-            // Success: Extract, Parse, and Return
             const apiResp = await resp.json();
-
-            // Safely navigate the nested response structure
             const genText = apiResp.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
             if (!genText) {
-                 throw new Error("API response was successful but contained no generated text.");
+                throw new Error("API response was successful but contained no generated text.");
             }
 
-            const steps = parseJson(genText);
+            const result = parseJson(genText);
 
-            if (!Array.isArray(steps)) {
-                console.warn("AI output successfully parsed but was not an array. Returning empty array.");
-                return [];
+            if (!result || !result.type || !result.data) {
+                // Fallback for legacy/simple array return
+                if (Array.isArray(result)) {
+                    return { type: 'tour', data: result };
+                }
+                // Fallback for simple object return
+                if (typeof result === 'object') {
+                    // Heuristic: if it looks like steps
+                    if (result[0] && result[0].popover) return { type: 'tour', data: result };
+
+                    // If it looks like inputs (keys match formInputs)
+                    if (tour && tour.formInputs) {
+                        // Check if keys overlap
+                        const inputKeys = Object.keys(tour.formInputs);
+                        const resultKeys = Object.keys(result);
+                        const hasOverlap = resultKeys.some(k => inputKeys.includes(k));
+                        if (hasOverlap) {
+                            return {
+                                type: 'fill_input_form',
+                                data: {
+                                    tourName: tour.tourName,
+                                    formInput: result
+                                }
+                            };
+                        }
+                    }
+
+                    // Default fallback
+                    return { type: 'unknown', data: result };
+                }
+
+                console.warn("AI output parsed but missing type/data structure.", result);
+                return { type: 'unknown', data: result };
             }
-            
-            console.log("Parsed steps from Gemini response:", steps);
-            return steps;
+
+            console.log("Parsed result from Gemini:", result);
+            return result;
 
         } catch (err) {
-            // Handle network/JSON parsing errors
             if (attempt < GEMINI_CONFIG.MAX_RETRIES) {
                 const delay = GEMINI_CONFIG.BASE_DELAY_MS * Math.pow(2, attempt - 1);
                 console.warn(`Network/Parse error. Retrying in ${delay}ms...`);
                 await sleep(delay);
                 continue;
             }
-            // If max attempts reached, re-throw the last error
             throw err;
         }
     }
-    // This line is technically unreachable but serves as a final failsafe
     throw new Error('Failed to call Generative Language API after all retries.');
 }

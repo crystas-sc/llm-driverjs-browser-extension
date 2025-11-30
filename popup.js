@@ -161,25 +161,54 @@ async function populateTourSelect(tours) {
         header.innerHTML = `Predefined tour on <span style="color: #4285F4;">${url.hostname}</span>`;
         header.style.marginBottom = '10px';
         DOM.predefinedTourContainer.appendChild(header);
+
         const button = document.createElement('button');
         button.textContent = `Start: ${tour.tourName}`;
-        button.className = 'secondary-button'; // Assuming you might want some styling, or just leave it default/add a class
+        button.className = 'secondary-button';
         button.style.width = '100%';
         button.style.marginBottom = '10px';
 
         button.addEventListener('click', async function () {
-            const tabId = (await getActiveTab()).id;
-            console.log("Selected tour object:", tour);
-            const renderMsg = { type: 'GEMINI_RESULT', result: tour.steps };
-            chrome.tabs.sendMessage(tabId, renderMsg);
-            window.close();
+            const originalText = button.textContent;
+            button.textContent = 'Starting...';
+            button.disabled = true;
+
+            try {
+                const tabId = (await getActiveTab()).id;
+                const prompt = DOM.prompt.value.trim();
+                let stepsToRun = tour.steps;
+
+                if (tour.formInputs && Object.keys(tour.formInputs).length > 0 && prompt) {
+                    button.textContent = 'Processing Inputs...';
+                    console.log("Filling form inputs with prompt:", prompt);
+                    const response = await sendMessageAsync({
+                        type: 'FILL_FORM_INPUTS',
+                        tour: tour,
+                        prompt: prompt
+                    });
+
+                    if (response && response.ok && response.steps) {
+                        stepsToRun = response.steps;
+                    }
+                }
+
+                console.log("Starting tour with steps:", stepsToRun);
+                const renderMsg = { type: 'GEMINI_RESULT', result: stepsToRun };
+                chrome.tabs.sendMessage(tabId, renderMsg);
+                window.close();
+            } catch (error) {
+                console.error("Failed to start tour:", error);
+                button.textContent = originalText;
+                button.disabled = false;
+                alert(`Failed to start tour: ${error.message}`);
+            }
         });
 
         DOM.predefinedTourContainer.appendChild(button);
     } else {
         const selectElement = document.createElement('select');
         selectElement.id = 'predefinedTours';
-        selectElement.innerHTML = '<option value="">Select a predefined tour</option>'; // Default option
+        selectElement.innerHTML = '<option value="">Select a predefined tour</option>';
 
         tours.forEach(tour => {
             const option = document.createElement('option');
@@ -190,7 +219,6 @@ async function populateTourSelect(tours) {
 
         DOM.predefinedTourContainer.appendChild(selectElement);
 
-        // Add an event listener to update the prompt when a tour is selected
         selectElement.addEventListener('change', async function () {
             console.log("Predefined tour selected:", this.value);
             if (this.value) {

@@ -70,15 +70,59 @@ function getPageContext() {
  * @param {Array<Object>} steps - Steps from the Gemini result, e.g., { selector, title, description }.
  * @returns {Array<Object>} Normalized steps for Driver.js, e.g., { element, popover: { title, description } }.
  */
-function normalizeDriverSteps(steps) {
-    return steps.map(s => ({
-        // Use 'element' or 'selector' for the DOM target
-        element: s.xpath ? getElementByXPath(s.xpath) : s.element || s.selector || null,
-        popover: s.popover || {
-            title: s.title || '',
-            description: s.description || ''
+
+function normalizeDriverSteps(steps, getDriverObj) {
+    return steps.map((s, stepIndex) => {
+        let step = {
+            // Use 'element' or 'selector' for the DOM target
+            element: s.xpath ? () => getElementByXPath(s.xpath) : s.element || s.selector || null,
+            popover: s.popover || {
+                title: s.title || '',
+                description: s.description || ''
+
+            }
+        };
+        if (s.waitForInput) {
+            // step.popover.showButtons = ['previous']; // Initially hide next button
+            const checkInput = () => {
+                const element = getElementByXPath(s.xpath);
+                if (element) {
+                    element.addEventListener('blur', () => {
+
+                        const nextBtn = document.querySelector('.driver-popover-next-btn');
+                        if (nextBtn) {
+                            nextBtn.style.display = 'inline-block';
+                        }
+                        setTimeout(() => {
+                            getDriverObj().moveTo(stepIndex + 1);
+                        }, 500);
+                    }, {});
+                }
+            };
+            step.onHighlightStarted = checkInput;
         }
-    }));
+
+        if (s.nextActions && Array.isArray(s.nextActions)) {
+            step.popover.onNextClick = () => {
+                s.nextActions.forEach(action => {
+                    if (action.action === 'click' && action.xpath) {
+                        const element = getElementByXPath(action.xpath);
+                        if (element) {
+                            element.click();
+                            setTimeout(() => {
+                                getDriverObj().moveNext();
+
+                            }, 500)
+                        }
+                    }
+                });
+
+
+            };
+        }
+
+        return step;
+    });
 }
 
 function getElementByXPath(xpath) {
@@ -96,9 +140,10 @@ function getElementByXPath(xpath) {
  * @param {Array<Object>} steps - The tour steps provided by the background script.
  */
 async function runDriverjs(steps) {
-   
+    let driverObj;
+
     // 1. Normalize and check steps
-    const normalizedSteps = normalizeDriverSteps(steps);
+    const normalizedSteps = normalizeDriverSteps(steps, () => driverObj);
     if (normalizedSteps.length === 0) {
         console.warn('Attempted to run Driver.js with no steps.');
         return;
@@ -108,9 +153,10 @@ async function runDriverjs(steps) {
     try {
         // Check for the exposed global API (driver.js.driver)
         if (typeof window.driver !== 'undefined' && typeof window.driver.js.driver === 'function') {
-            const driverObj = window.driver.js.driver({
+            driverObj = window.driver.js.driver({
                 animate: false,
                 showProgress: false,
+                keyboardControl: true,
                 showButtons: ['next', 'previous', 'close'],
                 steps: normalizedSteps
             });

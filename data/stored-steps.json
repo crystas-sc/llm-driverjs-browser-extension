@@ -1,5 +1,4 @@
 [
-   
     {
         "url": "https://driverjs.com/docs/static-tour",
         "tourName": "Static Tour",
@@ -114,6 +113,80 @@
                     "title": "Start Tour",
                     "description": "Call the drive method to start the tour and your tour will be started.",
                     "side": "top",
+                    "align": "start"
+                }
+            }
+        ]
+    },
+    {
+        "url": "https://www.irctc.co.in/nget/train-search",
+        "tourName": "Train Search Tour",
+        "description": "A sample tour to search train",
+        "formInputs": {
+            "origin": "",
+            "destination": ""
+        },
+        "steps": [
+            {
+                "xpath": "//*[@id=\"origin\"]/span/input",
+                "popover": {
+                    "title": "From Station",
+                    "description": "Select from station, tour will move to next step when you select a station",
+                    "side": "bottom",
+                    "align": "start"
+                },
+                "waitForInput": true,
+                "inputKey": "origin",
+                "inputValue": ""
+            },
+            {
+                "xpath": "//*[@id=\"destination\"]/span/input",
+                "popover": {
+                    "title": "To Station",
+                    "description": "Select to station, tour will move to next step when you select a station",
+                    "side": "right",
+                    "align": "start"
+                },
+                "waitForInput": true,
+                "inputKey": "destination",
+                "inputValue": ""
+            },
+            {
+                "xpath": "//*[@id=\"divMain\"]/div/app-main-page/div/div/div[1]/div[1]/div[1]/app-jp-input/div/form/div[5]/div[1]/button",
+                "popover": {
+                    "title": "Search",
+                    "description": "Click on search button to search train",
+                    "side": "right",
+                    "align": "start"
+                },
+                "nextActions": [
+                    {
+                        "action": "click",
+                        "xpath": "//*[@id=\"divMain\"]/div/app-main-page/div/div/div[1]/div[1]/div[1]/app-jp-input/div/form/div[5]/div[1]/button"
+                    }
+                ]
+            },
+            {
+                "xpath": "//*[@id=\"divMain\"]/div/app-train-list/div[4]/div[3]/div[5]/div[3]/div[1]/app-train-avl-enq/div[1]/div[5]/div[1]/table/tr/td[1]/div",
+                "popover": {
+                    "title": "Seat Type",
+                    "description": "Select seat type",
+                    "side": "right",
+                    "align": "start"
+                },
+                "nextActions": [
+                    {
+                        "action": "click",
+                        "xpath": "//*[@id=\"divMain\"]/div/app-train-list/div[4]/div[3]/div[5]/div[3]/div[1]/app-train-avl-enq/div[1]/div[5]/div[1]/table/tr/td[1]/div"
+                    }
+                ]
+            },
+            {
+                "xpath": "//*[@id=\"divMain\"]/div/app-train-list/div[4]/div[3]/div[5]/div[3]/div[1]/app-train-avl-enq/div[2]/div/span/span/button[1]",
+                "popover": {
+                    "title": "Book Train",
+                    "description": "Click on book train button to book train",
+                    "side": "right",
                     "align": "start"
                 }
             }

@@ -1,39 +1,42 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>LLM Driver.js Tour</title>
-    <link rel="stylesheet" href="popup.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;600&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div class="header">
-      <h3>Generate guided Tour</h3>
-    </div>
 
-    <div id="predefined-tours-container" class="form-group" style="display:none;">
-      <!-- <label for="predefinedTours">Select a predefined tour:</label> -->
-    </div>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LLM Driver.js Tour</title>
+  <link rel="stylesheet" href="popup.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;600&display=swap" rel="stylesheet">
+</head>
 
-    <div class="form-group">
-      <label for="apiKey">Gemini API Key</label>
-      <input id="apiKey" type="password" placeholder="sk-..." />
-    </div>
+<body>
+  <div class="header">
+    <h3>Website Tours</h3>
+  </div>
 
-    <div class="form-group">
-      <label for="prompt">What would you like the tour guide to walk you through?</label>
-      <textarea id="prompt" rows="4" placeholder="e.g. Give me a 4-step onboarding tour for this page"></textarea>
-    </div>
+  <div id="predefined-tours-container" class="form-group" style="display:none;">
+    <!-- <label for="predefinedTours">Select a predefined tour:</label> -->
+  </div>
 
-    <button id="generate">
-      <span class="button-text">Generate Tour</span>
-      <span class="loader"></span>
-    </button>
-    <div class="note">Warning: API key is stored locally in extension storage.</div>
+  <div class="form-group">
+    <label for="apiKey">Gemini API Key</label>
+    <input id="apiKey" type="password" placeholder="sk-..." />
+  </div>
 
-    <script src="popup.js"></script>
-  </body>
-  </html>
+  <div class="form-group">
+    <label for="prompt">What would you like the tour guide to walk you through?</label>
+    <textarea id="prompt" rows="4" placeholder="e.g. Give me a 4-step onboarding tour for this page"></textarea>
+  </div>
+
+  <button id="generate">
+    <span class="button-text">Generate Tour</span>
+    <span class="loader"></span>
+  </button>
+  <div class="note">Warning: API key is stored locally in extension storage.</div>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>

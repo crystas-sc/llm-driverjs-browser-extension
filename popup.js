@@ -147,37 +147,62 @@ async function fetchPredefinedTours(tabUrl) {
  * Populates the tour select element with predefined tours.
  * @param {Array<string>} tours - An array of tour names.
  */
-function populateTourSelect(tours) {
+async function populateTourSelect(tours) {
     console.log("Populating predefined tours:", tours);
-    const selectElement = document.createElement('select');
-    selectElement.id = 'predefinedTours';
-    selectElement.innerHTML = '<option value="">Select a predefined tour</option>'; // Default option
 
-    tours.forEach(tour => {
-        const option = document.createElement('option');
-        option.value = JSON.stringify(tour);
-        option.textContent = tour.tourName;
-        selectElement.appendChild(option);
-    });
-
-    // Insert the select element before the prompt input
-    console.log("Appending predefined tour select to container:", DOM.predefinedTourContainer);
+    DOM.predefinedTourContainer.innerHTML = ''; // Clear previous content
     DOM.predefinedTourContainer.style.display = 'block'; // Make container visible
-    DOM.predefinedTourContainer.appendChild(selectElement);
 
-    // Add an event listener to update the prompt when a tour is selected
-    selectElement.addEventListener('change', async function () {
-        console.log("Predefined tour selected:", this.value);
-        if (this.value) {
-            const selectedTour = JSON.parse(this.value);
+    if (tours.length === 1) {
+        const tour = tours[0];
+
+        const header = document.createElement('h3');
+        const url = new URL((await getActiveTab()).url);
+        header.innerHTML = `Predefined tour on <span style="color: #4285F4;">${url.hostname}</span>`;
+        header.style.marginBottom = '10px';
+        DOM.predefinedTourContainer.appendChild(header);
+        const button = document.createElement('button');
+        button.textContent = `Start: ${tour.tourName}`;
+        button.className = 'secondary-button'; // Assuming you might want some styling, or just leave it default/add a class
+        button.style.width = '100%';
+        button.style.marginBottom = '10px';
+
+        button.addEventListener('click', async function () {
             const tabId = (await getActiveTab()).id;
-            console.log("Selected tour object:", selectedTour,);
-            const renderMsg = { type: 'GEMINI_RESULT', result: selectedTour.steps }
+            console.log("Selected tour object:", tour);
+            const renderMsg = { type: 'GEMINI_RESULT', result: tour.steps };
             chrome.tabs.sendMessage(tabId, renderMsg);
             window.close();
+        });
 
-        }
-    });
+        DOM.predefinedTourContainer.appendChild(button);
+    } else {
+        const selectElement = document.createElement('select');
+        selectElement.id = 'predefinedTours';
+        selectElement.innerHTML = '<option value="">Select a predefined tour</option>'; // Default option
+
+        tours.forEach(tour => {
+            const option = document.createElement('option');
+            option.value = JSON.stringify(tour);
+            option.textContent = tour.tourName;
+            selectElement.appendChild(option);
+        });
+
+        DOM.predefinedTourContainer.appendChild(selectElement);
+
+        // Add an event listener to update the prompt when a tour is selected
+        selectElement.addEventListener('change', async function () {
+            console.log("Predefined tour selected:", this.value);
+            if (this.value) {
+                const selectedTour = JSON.parse(this.value);
+                const tabId = (await getActiveTab()).id;
+                console.log("Selected tour object:", selectedTour);
+                const renderMsg = { type: 'GEMINI_RESULT', result: selectedTour.steps };
+                chrome.tabs.sendMessage(tabId, renderMsg);
+                window.close();
+            }
+        });
+    }
 }
 
 async function getActiveTab() {
